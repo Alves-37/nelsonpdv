@@ -146,6 +146,7 @@ export default function ProductForm({ initial, onSubmit, onCancel, submitting })
             value={form.preco_custo}
             onChange={e => update('preco_custo', e.target.value)}
             placeholder="0.00"
+            disabled={isServicos}
           />
         </div>
         <div>
@@ -181,6 +182,7 @@ export default function ProductForm({ initial, onSubmit, onCancel, submitting })
             value={form.estoque}
             onChange={e => update('estoque', e.target.value)}
             placeholder={form.venda_por_peso ? 'Ex.: 25.5' : 'Ex.: 10'}
+            disabled={isServicos}
           />
         </div>
         <div>
@@ -191,6 +193,7 @@ export default function ProductForm({ initial, onSubmit, onCancel, submitting })
             value={form.estoque_minimo}
             onChange={e => update('estoque_minimo', e.target.value)}
             placeholder="Ex.: 5"
+            disabled={isServicos}
           />
         </div>
       </div>
