@@ -82,6 +82,11 @@ export default function ProductForm({ initial, onSubmit, onCancel, submitting })
     onSubmit?.(payload)
   }
 
+  // Detectar se a categoria atual é "Serviços" para controlar UI (desabilitar campos)
+  const catSelecionada = categorias.find((c) => String(c.id ?? c.uuid ?? '') === String(form.categoria_id ?? ''))
+  const nomeCat = (catSelecionada?.nome || '').toLowerCase()
+  const isServicos = nomeCat === 'serviços' || nomeCat === 'servicos'
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Linha 1: Código, Categoria, Nome */}
