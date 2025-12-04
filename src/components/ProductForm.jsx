@@ -71,10 +71,10 @@ export default function ProductForm({ initial, onSubmit, onCancel, submitting })
     const payload = {
       ...form,
       preco_venda: Number(form.preco_venda || 0),
-      // Para serviços, não controlar custo/estoque: enviar sempre null
-      preco_custo: isServicos ? null : (form.preco_custo === '' ? null : Number(form.preco_custo)),
-      estoque: isServicos ? null : (form.estoque === '' ? null : Number(form.estoque)),
-      estoque_minimo: isServicos ? null : (form.estoque_minimo === '' ? null : Number(form.estoque_minimo)),
+      // Para serviços, não controlar custo/estoque: mandar 0.0 (backend espera float)
+      preco_custo: isServicos ? 0.0 : (form.preco_custo === '' ? 0.0 : Number(form.preco_custo)),
+      estoque: isServicos ? 0.0 : (form.estoque === '' ? 0.0 : Number(form.estoque)),
+      estoque_minimo: isServicos ? 0.0 : (form.estoque_minimo === '' ? 0.0 : Number(form.estoque_minimo)),
       categoria_id: form.categoria_id === '' ? null : form.categoria_id,
       unidade_medida: unidade,
       taxa_iva: Number(form.taxa_iva || 0),
