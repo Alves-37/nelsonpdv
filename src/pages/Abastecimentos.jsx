@@ -1,9 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import api from '../services/api'
-import { useAuth } from '../context/AuthContext'
 
 export default function Abastecimentos() {
-  const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [items, setItems] = useState([])
@@ -14,11 +12,9 @@ export default function Abastecimentos() {
   const [dataInicial, setDataInicial] = useState('')
   const [dataFinal, setDataFinal] = useState('')
   const [produtoId, setProdutoId] = useState('')
-  const [produtoNome, setProdutoNome] = useState('')
   const [produtoQuery, setProdutoQuery] = useState('')
   const [produtoSugestoes, setProdutoSugestoes] = useState([])
   const [showSugestoes, setShowSugestoes] = useState(false)
-  const debounceRef = useRef(null)
   const [usuarioId, setUsuarioId] = useState('')
   const [ordenacao, setOrdenacao] = useState('created_at_desc')
 
@@ -48,29 +44,46 @@ export default function Abastecimentos() {
 
   useEffect(() => { load() }, [params])
 
-  // Autocomplete de produto (busca por nome/código)
+  // Autocomplete de produtos (debounce simples)
   useEffect(() => {
-    if (!produtoQuery) { setProdutoSugestoes([]); return }
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(async () => {
+    let active = true
+    const q = (produtoQuery || '').trim()
+    if (!q) {
+      setProdutoSugestoes([])
+      return
+    }
+    const handle = setTimeout(async () => {
       try {
-        const data = await api.getProdutos(produtoQuery)
-        setProdutoSugestoes(Array.isArray(data) ? data.slice(0, 10) : [])
+        const result = await api.getProdutos(q)
+        if (!active) return
+        setProdutoSugestoes(Array.isArray(result) ? result.slice(0, 10) : [])
       } catch {
+        if (!active) return
         setProdutoSugestoes([])
       }
-    }, 250)
-    return () => debounceRef.current && clearTimeout(debounceRef.current)
+    }, 300)
+    return () => {
+      active = false
+      clearTimeout(handle)
+    }
   }, [produtoQuery])
 
-  function handleSubmit(e) {
-    e.preventDefault()
-    setPagina(1)
-    load()
+  function handleProdutoSelect(p) {
+    setProdutoId(p?.id || '')
+    setProdutoQuery(p?.nome ? `${p.nome}${p.codigo ? ` (${p.codigo})` : ''}` : '')
+    setShowSugestoes(false)
+  }
+
+  function clearProduto() {
+    setProdutoId('')
+    setProdutoQuery('')
+    setProdutoSugestoes([])
   }
 
   function exportCSV() {
-    const headers = ['Data','Produto','Código','Quantidade','Custo Unitário','Total Custo','Usuário','Observação']
+    const headers = [
+      'Data', 'Produto', 'Código', 'Quantidade', 'Custo Unitário', 'Total Custo', 'Usuário', 'Observação'
+    ]
     const rows = items.map(r => [
       r.created_at ? new Date(r.created_at).toLocaleString() : '',
       r.produto_nome || '',
@@ -79,78 +92,89 @@ export default function Abastecimentos() {
       String(r.custo_unitario ?? ''),
       String(r.total_custo ?? ''),
       r.usuario_nome || '',
-      (r.observacao || '').replace(/\n/g, ' '),
+      (r.observacao || '').replaceAll('\n', ' ').replaceAll('"', '""'),
     ])
-    const csv = [headers, ...rows].map(row => row.map(field => {
-      const s = String(field ?? '')
-      if (/[",\n;]/.test(s)) return '"' + s.replace(/"/g, '""') + '"'
-      return s
-    }).join(';')).join('\n')
+    const csv = [headers.join(','), ...rows.map(row => row.map(cell => {
+      const needsQuote = /[",\n]/.test(cell)
+      const val = String(cell).replaceAll('"', '""')
+      return needsQuote ? `"${val}"` : val
+    }).join(','))].join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = `abastecimentos_${new Date().toISOString().slice(0,10)}.csv`
+    document.body.appendChild(a)
     a.click()
+    document.body.removeChild(a)
     URL.revokeObjectURL(url)
   }
 
   function exportPDF() {
-    const html = `
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Abastecimentos</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 24px; }
-    h1 { font-size: 18px; margin-bottom: 12px; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
-    th { background: #f5f5f5; }
-  </style>
-  </head>
-  <body>
-    <h1>Histórico de Abastecimentos</h1>
-    <table>
+    // Gera uma visualização imprimível; o usuário pode "Salvar como PDF"
+    const w = window.open('', '_blank')
+    if (!w) return
+    const style = `
+      <style>
+        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; padding: 16px; }
+        h1 { font-size: 18px; margin: 0 0 12px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+        th { background: #f5f5f5; }
+        td.num { text-align: right; }
+      </style>
+    `
+    const header = `<h1>Histórico de Abastecimentos</h1>`
+    const tableHead = `
       <thead>
         <tr>
-          <th>Data</th><th>Produto</th><th>Código</th><th style="text-align:right">Quantidade</th><th style="text-align:right">Custo Unit.</th><th style="text-align:right">Total Custo</th><th>Usuário</th><th>Obs.</th>
+          <th>Data</th>
+          <th>Produto</th>
+          <th>Código</th>
+          <th>Quantidade</th>
+          <th>Custo Unit.</th>
+          <th>Total Custo</th>
+          <th>Usuário</th>
+          <th>Obs.</th>
         </tr>
       </thead>
+    `
+    const tableBody = `
       <tbody>
         ${items.map(r => `
           <tr>
             <td>${r.created_at ? new Date(r.created_at).toLocaleString() : ''}</td>
             <td>${r.produto_nome || ''}</td>
             <td>${r.codigo || ''}</td>
-            <td style="text-align:right">${Number(r.quantidade || 0).toLocaleString()}</td>
-            <td style="text-align:right">${Number(r.custo_unitario || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-            <td style="text-align:right">${Number(r.total_custo || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+            <td class="num">${Number(r.quantidade || 0).toLocaleString()}</td>
+            <td class="num">${Number(r.custo_unitario || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+            <td class="num">${Number(r.total_custo || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
             <td>${r.usuario_nome || ''}</td>
-            <td>${(r.observacao || '').replace(/</g,'&lt;')}</td>
+            <td>${(r.observacao || '').replaceAll('<','&lt;').replaceAll('>','&gt;')}</td>
           </tr>
         `).join('')}
       </tbody>
-    </table>
-    <script>window.onload = () => { window.print(); setTimeout(() => window.close(), 300); }<\/script>
-  </body>
-</html>`
-    const w = window.open('', '_blank')
-    if (!w) return
+    `
+    const html = `<!doctype html><html><head><meta charset="utf-8">${style}</head><body>${header}<table>${tableHead}${tableBody}</table></body></html>`
     w.document.open()
     w.document.write(html)
     w.document.close()
+    w.focus()
+    // Aguarda um tick antes de imprimir
+    setTimeout(() => { w.print(); w.close(); }, 300)
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    setPagina(1)
+    load()
   }
 
   return (
     <div className="p-4">
-      {!user?.is_admin ? (
-        <div className="p-4 border rounded bg-yellow-50 text-yellow-800">Acesso restrito: apenas administradores podem visualizar o histórico de abastecimentos.</div>
-      ) : null}
       <h1 className="text-xl font-semibold mb-4">Histórico de Abastecimentos</h1>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4" onFocus={() => setShowSugestoes(true)} onBlur={() => setTimeout(() => setShowSugestoes(false), 150)}>
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4 relative">
         <div>
           <label className="block text-sm mb-1">Data inicial</label>
           <input type="date" value={dataInicial} onChange={e => setDataInicial(e.target.value)} className="w-full border rounded px-2 py-1" />
@@ -159,31 +183,39 @@ export default function Abastecimentos() {
           <label className="block text-sm mb-1">Data final</label>
           <input type="date" value={dataFinal} onChange={e => setDataFinal(e.target.value)} className="w-full border rounded px-2 py-1" />
         </div>
-        <div className="relative">
+        <div className="md:col-span-2">
           <label className="block text-sm mb-1">Produto</label>
-          <input
-            type="text"
-            placeholder="Nome ou código"
-            value={produtoQuery}
-            onChange={e => { setProdutoQuery(e.target.value); setProdutoNome(''); setProdutoId('') }}
-            className="w-full border rounded px-2 py-1"
-          />
-          {showSugestoes && produtoSugestoes.length > 0 && (
-            <div className="absolute z-10 mt-1 max-h-56 overflow-auto w-full bg-white border rounded shadow">
-              {produtoSugestoes.map(p => (
-                <button type="button" key={p.id} className="w-full text-left px-2 py-1 hover:bg-gray-100" onClick={() => {
-                  setProdutoId(p.id)
-                  setProdutoNome(p.nome)
-                  setProdutoQuery(`${p.nome} (${p.codigo || ''})`)
-                  setShowSugestoes(false)
-                }}>
-                  {p.nome} {p.codigo ? `(${p.codigo})` : ''}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Pesquisar por nome ou código"
+              value={produtoQuery}
+              onChange={e => { setProdutoQuery(e.target.value); setShowSugestoes(true) }}
+              onFocus={() => setShowSugestoes(true)}
+              className="w-full border rounded px-2 py-1"
+            />
+            {produtoQuery && (
+              <button type="button" onClick={clearProduto} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500">×</button>
+            )}
+            {showSugestoes && produtoSugestoes.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full bg-white border rounded shadow max-h-60 overflow-auto">
+                {produtoSugestoes.map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className="w-full text-left px-3 py-2 hover:bg-gray-100"
+                    onClick={() => handleProdutoSelect(p)}
+                  >
+                    <div className="text-sm font-medium">{p.nome}</div>
+                    <div className="text-xs text-gray-600">{p.codigo}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* Campo oculto com o UUID selecionado (se houver) */}
           {produtoId ? (
-            <div className="text-xs text-gray-600 mt-1">Selecionado: {produtoNome || produtoQuery} • ID: {produtoId}</div>
+            <div className="text-xs text-gray-600 mt-1">Selecionado: <span className="font-medium">{produtoId}</span></div>
           ) : null}
         </div>
         <div>
