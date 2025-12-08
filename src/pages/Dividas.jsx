@@ -113,9 +113,22 @@ export default function Dividas() {
     setPayError('')
   }
 
-  function openDetail(divida) {
-    setSelectedDivida(divida)
+  async function openDetail(divida) {
+    setSelectedDivida({ ...divida, _loading: true, itens: [] })
     setShowDetailModal(true)
+    try {
+      const detail = await api.getDivida(divida.id)
+      if (detail && detail.id === divida.id) {
+        setSelectedDivida({ ...detail, _loading: false })
+      } else if (detail) {
+        // fallback: mesclar itens
+        setSelectedDivida({ ...divida, ...detail, _loading: false })
+      } else {
+        setSelectedDivida({ ...divida, _loading: false })
+      }
+    } catch (e) {
+      setSelectedDivida(prev => ({ ...(prev || divida), _loading: false, _error: e.message || 'Falha ao carregar detalhes' }))
+    }
   }
 
   function closeDetail() {
@@ -197,6 +210,35 @@ export default function Dividas() {
               <div><span className="text-gray-500">Total:</span> <b>{fmtMT(selectedDivida.valor_total)}</b></div>
               <div><span className="text-gray-500">Pago:</span> <b>{fmtMT(selectedDivida.valor_pago)}</b></div>
               <div className="sm:col-span-2"><span className="text-gray-500">Observação:</span> <div className="mt-1 whitespace-pre-wrap break-words">{selectedDivida.observacao || '—'}</div></div>
+            </div>
+            <div className="pt-2 border-t">
+              <h3 className="font-semibold mb-2">Itens</h3>
+              {selectedDivida._loading && <div className="text-sm text-gray-500">Carregando itens…</div>}
+              {selectedDivida._error && <div className="text-sm text-red-600">{selectedDivida._error}</div>}
+              {!selectedDivida._loading && Array.isArray(selectedDivida.itens) && selectedDivida.itens.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-gray-500">
+                        <th className="py-1 pr-2">Produto</th>
+                        <th className="py-1 pr-2">Qtd</th>
+                        <th className="py-1 pr-2">Preço</th>
+                        <th className="py-1 pr-2">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedDivida.itens.map((it, idx) => (
+                        <tr key={idx} className="border-t">
+                          <td className="py-1 pr-2 break-words">{it.produto_nome || it.produto_id || '—'}</td>
+                          <td className="py-1 pr-2">{Number(it.quantidade ?? 0)}</td>
+                          <td className="py-1 pr-2">{fmtMT(it.preco_unitario)}</td>
+                          <td className="py-1 pr-2">{fmtMT(it.subtotal)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (!selectedDivida._loading && <div className="text-sm text-gray-500">Sem itens.</div>)}
             </div>
             <div className="flex items-center justify-end gap-2 pt-2">
               <button className="btn-secondary px-3 py-1" onClick={closeDetail}>Fechar</button>

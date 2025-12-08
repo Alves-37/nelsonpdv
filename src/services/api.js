@@ -108,6 +108,11 @@ export const api = {
   },
 
   /**
+   * Obtém detalhes da dívida (inclui itens) por UUID
+   */
+  getDivida: (dividaId) => request(`/api/dividas/id/${dividaId}`),
+
+  /**
    * Registra pagamento de uma dívida existente.
    * dividaId: UUID da dívida no backend
    * payload: { valor: number, forma_pagamento: string, usuario_id?: string(UUID) }
