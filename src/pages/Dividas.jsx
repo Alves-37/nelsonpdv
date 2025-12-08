@@ -18,7 +18,7 @@ export default function Dividas() {
     setLoading(true)
     setError(null)
     try {
-      const data = await api.getDividasAbertas()
+      const data = await api.getDividas()
       const arr = Array.isArray(data) ? data : (data?.items || [])
       setTodos(arr)
     } catch (e) {
@@ -252,7 +252,7 @@ export default function Dividas() {
           <div className="mx-auto h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center">
             <svg className="h-6 w-6 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h18v14H3z"/><path d="M3 9h18"/></svg>
           </div>
-          <p className="mt-3 text-gray-600">Nenhuma dívida aberta encontrada.</p>
+          <p className="mt-3 text-gray-600">Nenhuma dívida encontrada.</p>
         </div>
       )}
 
