@@ -6,6 +6,12 @@ export default function Dividas() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [q, setQ] = useState('') // filtro simples por cliente/observação
+  const [showPayModal, setShowPayModal] = useState(false)
+  const [selectedDivida, setSelectedDivida] = useState(null)
+  const [payAmount, setPayAmount] = useState('')
+  const [payMethod, setPayMethod] = useState('dinheiro')
+  const [paying, setPaying] = useState(false)
+  const [payError, setPayError] = useState('')
 
   async function load() {
     setLoading(true)
@@ -88,19 +94,50 @@ export default function Dividas() {
     </div>
   )
 
-  async function handlePagar(divida) {
-    const restante = Number(divida.valor_total ?? 0) - Number(divida.valor_pago ?? 0)
+  function openPayModal(divida) {
+    const restante = Math.max(0, Number(divida.valor_total ?? 0) - Number(divida.valor_pago ?? 0))
     if (restante <= 0) return
-    if (!window.confirm(`Registrar pagamento de ${fmtMT(restante)} para esta dívida?`)) return
+    setSelectedDivida(divida)
+    setPayAmount(String(restante.toFixed(2)))
+    setPayMethod('dinheiro')
+    setPayError('')
+    setShowPayModal(true)
+  }
+
+  function closePayModal() {
+    setShowPayModal(false)
+    setSelectedDivida(null)
+    setPayAmount('')
+    setPayMethod('dinheiro')
+    setPayError('')
+  }
+
+  async function submitPayment() {
+    if (!selectedDivida) return
+    setPayError('')
+    const restante = Math.max(0, Number(selectedDivida.valor_total ?? 0) - Number(selectedDivida.valor_pago ?? 0))
+    let valor = Number(payAmount)
+    if (!isFinite(valor) || valor <= 0) {
+      setPayError('Informe um valor válido (> 0).')
+      return
+    }
+    if (valor > restante + 1e-6) {
+      setPayError(`Valor não pode exceder o restante (${fmtMT(restante)}).`)
+      return
+    }
+    setPaying(true)
     try {
-      await api.pagarDivida(divida.id, {
-        valor: restante,
-        forma_pagamento: 'dinheiro',
+      await api.pagarDivida(selectedDivida.id, {
+        valor,
+        forma_pagamento: payMethod,
         usuario_id: null,
       })
       await load()
+      closePayModal()
     } catch (e) {
-      alert(e.message || 'Falha ao registrar pagamento')
+      setPayError(e.message || 'Falha ao registrar pagamento')
+    } finally {
+      setPaying(false)
     }
   }
 
@@ -173,7 +210,7 @@ export default function Dividas() {
                   <button
                     className="btn-primary text-xs px-3 py-1 disabled:opacity-50"
                     disabled={restante <= 0}
-                    onClick={() => handlePagar(d)}
+                    onClick={() => openPayModal(d)}
                   >
                     Registrar pagamento
                   </button>
@@ -181,6 +218,52 @@ export default function Dividas() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {showPayModal && selectedDivida && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded shadow-lg w-full max-w-sm p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Registrar pagamento</h2>
+              <button className="text-gray-500 hover:text-gray-700" onClick={closePayModal} disabled={paying}>
+                ✕
+              </button>
+            </div>
+            <div className="text-sm text-gray-600">
+              <div>Cliente: <b>{selectedDivida.cliente_nome || '—'}</b></div>
+              <div>Total: <b>{fmtMT(selectedDivida.valor_total)}</b></div>
+              <div>Pago: <b>{fmtMT(selectedDivida.valor_pago)}</b></div>
+              <div>Restante: <b>{fmtMT(Math.max(0, Number(selectedDivida.valor_total ?? 0) - Number(selectedDivida.valor_pago ?? 0)))}</b></div>
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">Valor a pagar</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                className="input w-full"
+                value={payAmount}
+                onChange={e => setPayAmount(e.target.value)}
+                disabled={paying}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">Forma de pagamento</label>
+              <select className="input w-full" value={payMethod} onChange={e => setPayMethod(e.target.value)} disabled={paying}>
+                <option value="dinheiro">Dinheiro</option>
+                <option value="mpesa">M-Pesa</option>
+                <option value="emola">e-Mola</option>
+                <option value="transferencia">Transferência</option>
+                <option value="pos">POS</option>
+              </select>
+            </div>
+            {payError && <div className="text-sm text-red-600">{payError}</div>}
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button className="btn-secondary px-3 py-1" onClick={closePayModal} disabled={paying}>Cancelar</button>
+              <button className="btn-primary px-3 py-1" onClick={submitPayment} disabled={paying}>Confirmar</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
