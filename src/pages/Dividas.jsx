@@ -8,6 +8,7 @@ export default function Dividas() {
   const [q, setQ] = useState('') // filtro simples por cliente/observação
   const [showPayModal, setShowPayModal] = useState(false)
   const [selectedDivida, setSelectedDivida] = useState(null)
+  const [showDetailModal, setShowDetailModal] = useState(false)
   const [payAmount, setPayAmount] = useState('')
   const [payMethod, setPayMethod] = useState('dinheiro')
   const [paying, setPaying] = useState(false)
@@ -112,6 +113,16 @@ export default function Dividas() {
     setPayError('')
   }
 
+  function openDetail(divida) {
+    setSelectedDivida(divida)
+    setShowDetailModal(true)
+  }
+
+  function closeDetail() {
+    setShowDetailModal(false)
+    setSelectedDivida(null)
+  }
+
   async function submitPayment() {
     if (!selectedDivida) return
     setPayError('')
@@ -170,6 +181,30 @@ export default function Dividas() {
         </div>
       )}
 
+      {showDetailModal && selectedDivida && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded shadow-lg w-full max-w-md p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Detalhes da dívida</h2>
+              <button className="text-gray-500 hover:text-gray-700" onClick={closeDetail}>✕</button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-gray-700">
+              <div><span className="text-gray-500">ID Local:</span> <b>{selectedDivida.id_local ?? '—'}</b></div>
+              <div><span className="text-gray-500">UUID:</span> <b className="break-all">{selectedDivida.id || '—'}</b></div>
+              <div className="sm:col-span-2"><span className="text-gray-500">Cliente:</span> <b>{selectedDivida.cliente_nome || '—'}</b></div>
+              <div><span className="text-gray-500">Data:</span> <b>{fmtData(selectedDivida.data_divida)}</b></div>
+              <div><span className="text-gray-500">Status:</span> <b>{selectedDivida.status}</b></div>
+              <div><span className="text-gray-500">Total:</span> <b>{fmtMT(selectedDivida.valor_total)}</b></div>
+              <div><span className="text-gray-500">Pago:</span> <b>{fmtMT(selectedDivida.valor_pago)}</b></div>
+              <div className="sm:col-span-2"><span className="text-gray-500">Observação:</span> <div className="mt-1 whitespace-pre-wrap break-words">{selectedDivida.observacao || '—'}</div></div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button className="btn-secondary px-3 py-1" onClick={closeDetail}>Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {!loading && filtradas.length === 0 && (
         <div className="card text-center py-10">
           <div className="mx-auto h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center">
@@ -206,7 +241,13 @@ export default function Dividas() {
                     <div className="mt-0.5 text-xs text-gray-700 font-medium">Restante: {fmtMT(restante)}</div>
                   </div>
                 </div>
-                <div className="pt-2 border-t flex items-center justify-end">
+                <div className="pt-2 border-t flex items-center justify-end gap-2">
+                  <button
+                    className="btn-secondary text-xs px-3 py-1"
+                    onClick={() => openDetail(d)}
+                  >
+                    Ver detalhes
+                  </button>
                   <button
                     className="btn-primary text-xs px-3 py-1 disabled:opacity-50"
                     disabled={restante <= 0}
