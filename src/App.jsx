@@ -11,6 +11,7 @@ import RelatoriosFinanceiros from './pages/RelatoriosFinanceiros'
 import Configuracoes from './pages/Configuracoes'
 import Dividas from './pages/Dividas'
 import Abastecimentos from './pages/Abastecimentos'
+import Despesas from './pages/Despesas'
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
           <Route path="/clientes" element={<Clientes />} />
           <Route path="/vendas" element={<Vendas />} />
           <Route path="/abastecimentos" element={<Abastecimentos />} />
+          <Route path="/despesas" element={<Despesas />} />
           <Route path="/dividas" element={<Dividas />} />
           <Route path="/relatorios-financeiros" element={<RelatoriosFinanceiros />} />
           <Route path="/configuracoes" element={<Configuracoes />} />

@@ -40,6 +40,23 @@ export const api = {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     auth: false,
   }),
+  // Despesas
+  getDespesas: ({ fechada = 0, categoria, tipo, data_inicio, data_fim } = {}) => {
+    const qs = new URLSearchParams()
+    qs.set('fechada', String(fechada))
+    if (categoria) qs.set('categoria', categoria)
+    if (tipo) qs.set('tipo', tipo)
+    if (data_inicio) qs.set('data_inicio', data_inicio)
+    if (data_fim) qs.set('data_fim', data_fim)
+    return request(`/api/despesas/?${qs.toString()}`)
+  },
+  createDespesa: (payload) => request('/api/despesas/', { method: 'POST', body: payload }),
+  updateDespesa: (id, payload) => request(`/api/despesas/${id}`, { method: 'PUT', body: payload }),
+  deleteDespesa: (id) => request(`/api/despesas/${id}`, { method: 'DELETE' }),
+  getDespesasTotal: ({ fechada = 0 } = {}) => request(`/api/despesas/total?fechada=${encodeURIComponent(String(fechada))}`),
+  getDespesasHistorico: ({ limit = 300 } = {}) => request(`/api/despesas/historico?limit=${encodeURIComponent(String(limit))}`),
+  getCategoriasDespesa: () => request('/api/despesas/categorias'),
+  createCategoriaDespesa: (nome) => request('/api/despesas/categorias', { method: 'POST', body: { nome } }),
   // Produtos
   getProdutos: (q) => request(`/api/produtos/${q ? `?q=${encodeURIComponent(q)}` : ''}`),
   createProduto: (payload) => request('/api/produtos/', { method: 'POST', body: payload }),
